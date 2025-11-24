@@ -1,0 +1,67 @@
+### .NET Core / ASP.NET Core
+bin/
+obj/
+out/
+
+# VS/CLI build logs
+*.log
+*.tlog
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.userprefs
+
+# Visual Studio (if mixed tooling)
+.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# ASP.NET Core Publish Directory
+wwwroot/lib/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & secrets
+appsettings.Local.json
+appsettings.*.local.json
+appsettings.Development.json
+secrets.json
+.env
+
+### JetBrains Rider / IntelliJ IDEA
+.idea/
+*.sln.iml
+
+# Rider cache directory
+.idea_modules/
+.idea/*/workspace.xml
+.idea/*/tasks.xml
+.idea/*/usage.statistics.xml
+.idea/*/dictionaries
+.idea/*/shelf/
+
+# JetBrains plugin settings
+*.iws
+
+### Operating System Files ###
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
