@@ -1,6 +1,8 @@
 using AnalyticsService.Data;
 using AnalyticsService.Models;
+using AnalyticsService.Consumers;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +15,39 @@ builder.Services.AddDbContext<AnalyticsDbContext>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// ===== RabbitMQ / MassTransit (Consumer) =====
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<LinkHitConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+        var rabbitUser = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+        var rabbitPass = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+        // Port MUST be ushort for this MassTransit version
+        var rabbitPortStr = builder.Configuration["RabbitMQ:Port"];
+        ushort rabbitPort = ushort.TryParse(rabbitPortStr, out var p) ? p : (ushort)5672;
+
+        cfg.Host(rabbitHost, rabbitPort, "/", h =>
+        {
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
+        });
+
+        cfg.ReceiveEndpoint("analytics-hit-queue", e =>
+        {
+            e.ConfigureConsumer<LinkHitConsumer>(context);
+            e.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(2)));
+        });
+    });
+
+});
+
 var app = builder.Build();
 
+// migrate db
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
@@ -29,7 +62,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/", () => Results.Ok("AnalyticsService is running"));
 
-// Endpoint to record a hit (called from RedirectService later)
+// keep your internal HTTP endpoint if you want (fine for testing)
 app.MapPost("/internal/analytics/hit", async (LinkHit hit, AnalyticsDbContext db) =>
 {
     hit.Id = Guid.NewGuid();
@@ -41,7 +74,6 @@ app.MapPost("/internal/analytics/hit", async (LinkHit hit, AnalyticsDbContext db
     return Results.Accepted();
 });
 
-// Basic query: hits by short code
 app.MapGet("/api/analytics/{code}", async (string code, AnalyticsDbContext db) =>
 {
     var hits = await db.LinkHits

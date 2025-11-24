@@ -1,7 +1,8 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
+using MassTransit;
+using ShortLink.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,30 @@ builder.Services.AddHttpClient("LinkService", client =>
     client.BaseAddress = new Uri(baseUrl);
 });
 
+// ===== RabbitMQ / MassTransit (Publisher) =====
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+        var rabbitUser = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+        var rabbitPass = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+        // Port MUST be ushort for this MassTransit version
+        var rabbitPortStr = builder.Configuration["RabbitMQ:Port"];
+        ushort rabbitPort = ushort.TryParse(rabbitPortStr, out var p) ? p : (ushort)5672;
+
+        cfg.Host(rabbitHost, rabbitPort, "/", h =>
+        {
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
+        });
+
+        // Optional: make publishing more resilient
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -32,8 +57,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/", () => Results.Ok("RedirectService is running"));
 
-// Actual redirect endpoint
-app.MapGet("/{code}", async (string code, IDistributedCache cache, IHttpClientFactory httpClientFactory, HttpContext httpContext) =>
+app.MapGet("/{code}", async (
+    string code,
+    IDistributedCache cache,
+    IHttpClientFactory httpClientFactory,
+    HttpContext httpContext,
+    IPublishEndpoint publishEndpoint) =>
 {
     if (string.IsNullOrWhiteSpace(code))
         return Results.BadRequest("Code is required.");
@@ -63,9 +92,7 @@ app.MapGet("/{code}", async (string code, IDistributedCache cache, IHttpClientFa
 
         var response = await client.GetAsync($"/internal/links/by-code/{WebUtility.UrlEncode(code)}");
         if (!response.IsSuccessStatusCode)
-        {
             return Results.NotFound("Short link not found.");
-        }
 
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = doc.RootElement;
@@ -78,11 +105,19 @@ app.MapGet("/{code}", async (string code, IDistributedCache cache, IHttpClientFa
     if (targetUrl is null) return Results.NotFound("Short link not found.");
 
     if (!isActive || (expiresAt.HasValue && expiresAt.Value < DateTime.UtcNow))
-    {
-        return Results.StatusCode(StatusCodes.Status410Gone); // Gone
-    }
+        return Results.StatusCode(StatusCodes.Status410Gone);
 
-    // TODO: send analytics event (HTTP POST to AnalyticsService) - later
+    // ===== Publish analytics event (fire-and-forget-ish) =====
+    var evt = new LinkHitEvent(
+        ShortCode: code,
+        Ip: httpContext.Connection.RemoteIpAddress?.ToString(),
+        UserAgent: httpContext.Request.Headers.UserAgent.ToString(),
+        Referer: httpContext.Request.Headers.Referer.ToString(),
+        TimestampUtc: DateTime.UtcNow
+    );
+
+    // Don't block redirect if broker is slow/fails:
+    _ = Task.Run(() => publishEndpoint.Publish(evt));
 
     return Results.Redirect(targetUrl, permanent: false);
 });

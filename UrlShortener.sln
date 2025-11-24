@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedirectService", "Redirect
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalyticsService", "AnalyticsService\AnalyticsService.csproj", "{2AFB9F27-5EBA-4972-BFFE-DD26D195FC3A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShortLink.Contracts", "ShortLink.Contracts\ShortLink.Contracts.csproj", "{35D474CF-AE85-4037-8ED4-CFB308916109}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +44,9 @@ Global
 		{2AFB9F27-5EBA-4972-BFFE-DD26D195FC3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2AFB9F27-5EBA-4972-BFFE-DD26D195FC3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2AFB9F27-5EBA-4972-BFFE-DD26D195FC3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35D474CF-AE85-4037-8ED4-CFB308916109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35D474CF-AE85-4037-8ED4-CFB308916109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35D474CF-AE85-4037-8ED4-CFB308916109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35D474CF-AE85-4037-8ED4-CFB308916109}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
